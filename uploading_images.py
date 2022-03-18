@@ -8,29 +8,20 @@ from dotenv import load_dotenv
 
 
 def get_comic_url():
-    comic_num = random.randint(1, 2500)
+    comics_amount = requests.get('https://xkcd.com/info.0.json').json()['num']
+    comic_num = random.randint(1, comics_amount)
     comic_url = f'https://xkcd.com/{comic_num}/info.0.json'
     return comic_url
 
 
-def get_full_image_path(url, image_name, image_folder):
+def get_full_image_path(url, image_folder):
     """
     return full image path
     """
-    image_url = urlparse(url)
-    filename, file_extension = os.path.splitext(image_url.path)
-    full_image_path = f'{image_folder}/{image_name}{file_extension}'
+    filename = os.path.basename(url)
+    full_image_path = f'{image_folder}/{filename}'
     return full_image_path
 
-
-def get_extension(url):
-    """
-    get image extension from url
-    """
-    image_url = urlparse(url)
-    filename, file_extension = os.path.splitext(image_url.path)
-
-    return file_extension
 
 
 def parse_image_info(comic_url):
@@ -167,17 +158,15 @@ def main():
     image_info = parse_image_info(comic_url=comic_url)
     image_url = image_info['image_url']
     author_comment = image_info['author_comment']
-    image_name = 'first_comic'
     full_image_path = get_full_image_path(
         url=image_url,
-        image_name=image_name,
         image_folder=photos_path,
     )
+    print(full_image_path)
     download_image(
         image_url=image_url,
         image_path=full_image_path,
     )
-
     vk_token = os.getenv('VK_ACCESS_TOKEN')
     group_id = os.getenv('VK_GROUP_ID')
     image_url = send_image_to_group(
@@ -208,7 +197,6 @@ def main():
         vk_token=vk_token,
         attachments=attachments,
     )
-
 
 if __name__ == '__main__':
     main()
