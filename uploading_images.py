@@ -1,10 +1,19 @@
 import os
 import random
 from pathlib import Path
-from urllib.parse import urlparse
 
 import requests
 from dotenv import load_dotenv
+
+
+def check_error_in_vk_response(vk_response):
+    try:
+        if 'error' in vk_response.json():
+            raise requests.exceptions.RequestException
+    except requests.exceptions.RequestException:
+        return vk_response.json()['error']['error_msg']
+    else:
+        return vk_response
 
 
 def get_comic_url():
@@ -23,7 +32,6 @@ def get_full_image_path(url, image_folder):
     return full_image_path
 
 
-
 def parse_image_info(comic_url):
     """
     get comic url
@@ -31,8 +39,9 @@ def parse_image_info(comic_url):
     """
     comic_response = requests.get(url=comic_url)
     comic_response.raise_for_status()
-    image_url = comic_response.json()['img']
-    comment_to_image = comic_response.json()['alt']
+    comic_data = comic_response.json()
+    image_url = comic_data['img']
+    comment_to_image = comic_data['alt']
     image_info = {
         'image_url': image_url,
         'author_comment': comment_to_image,
@@ -78,6 +87,12 @@ def send_image_to_group(group_id, vk_token):
         url=vk_wallaper_url,
         params=params,
     )
+    response = check_error_in_vk_response(
+        vk_response=response,
+    )
+    if isinstance(response, str):
+        print(response)
+        return None
     response.raise_for_status()
     upload_url = response.json()['response']['upload_url']
     return upload_url
@@ -99,7 +114,6 @@ def send_image_to_wall(image_url, vk_token, image_path):
             files=files,
         )
         response.raise_for_status()
-    os.remove(image_path)
     return response.json()
 
 
@@ -141,6 +155,7 @@ def publish_image_on_wall(group_id, message, vk_token, attachments):
         url=publish_url,
         params=params,
     )
+    response.raise_for_status()
     return response.json()
 
 
@@ -162,7 +177,6 @@ def main():
         url=image_url,
         image_folder=photos_path,
     )
-    print(full_image_path)
     download_image(
         image_url=image_url,
         image_path=full_image_path,
@@ -173,11 +187,16 @@ def main():
         group_id=group_id,
         vk_token=vk_token,
     )
-    image_info = send_image_to_wall(
-        image_url=image_url,
-        vk_token=vk_token,
-        image_path=full_image_path,
-    )
+    if not image_url:
+        return None
+    try:
+        image_info = send_image_to_wall(
+            image_url=image_url,
+            vk_token=vk_token,
+            image_path=full_image_path,
+        )
+    finally:
+        os.remove(full_image_path)
     server = image_info['server']
     photo = image_info['photo']
     image_hash = image_info['hash']
@@ -188,15 +207,16 @@ def main():
         vk_token=vk_token,
         group_id=group_id,
     )
-    owner_id = str(image_response['owner_id'])
-    media_id = str(image_response['id'])
-    attachments = 'photo' + owner_id + '_' + media_id
+    owner_id = image_response['owner_id']
+    media_id = image_response['id']
+    attachments = f'photo{owner_id}_{media_id}'
     publish_image_on_wall(
         group_id=group_id,
         message=author_comment,
         vk_token=vk_token,
         attachments=attachments,
     )
+
 
 if __name__ == '__main__':
     main()
