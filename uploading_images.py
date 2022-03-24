@@ -8,7 +8,6 @@ from dotenv import load_dotenv
 
 def check_error_in_vk_response(vk_response):
     if 'error' in vk_response:
-        print(vk_response['error']['error_msg'])
         raise requests.exceptions.RequestException
 
 
@@ -53,6 +52,7 @@ def download_image(image_url, image_path):
     saving it into folder
     """
     image_response = requests.get(url=image_url)
+    image_response.raise_for_status()
     with open(image_path, 'wb') as file:
         file.write(image_response.content)
 
@@ -71,11 +71,11 @@ def send_image_to_group(group_id, vk_token):
         url=vk_wallaper_url,
         params=params,
     )
+    response.raise_for_status()
     response_data = response.json()
     check_error_in_vk_response(
         vk_response=response_data,
     )
-    response.raise_for_status()
     return response_data['response']['upload_url']
 
 
@@ -115,11 +115,11 @@ def save_image_to_group(image_hash, photo, image_server, vk_token, group_id):
         url=saving_url,
         params=params
     )
+    response.raise_for_status()
     response_data = response.json()
     check_error_in_vk_response(
         vk_response=response_data,
     )
-    response.raise_for_status()
     return response_data['response'][0]
 
 
@@ -140,11 +140,11 @@ def publish_image_on_wall(group_id, message, vk_token, attachments):
         url=publish_url,
         params=params,
     )
+    response.raise_for_status()
     response_data = response.json()
     check_error_in_vk_response(
         vk_response=response_data,
     )
-    response.raise_for_status()
     return response_data
 
 
@@ -179,8 +179,6 @@ def main():
         )
     except requests.exceptions.RequestException:
         return None
-    finally:
-        os.remove(full_image_path)
     try:
         image_info = send_image_to_wall(
             image_url=image_url,
@@ -202,8 +200,6 @@ def main():
         )
     except requests.exceptions.RequestException:
         return None
-    finally:
-        os.remove(full_image_path)
     owner_id = image_response['owner_id']
     media_id = image_response['id']
     attachments = f'photo{owner_id}_{media_id}'
@@ -216,8 +212,6 @@ def main():
         )
     except requests.exceptions.RequestException:
         return None
-    finally:
-        os.remove(full_image_path)
 
 
 if __name__ == '__main__':
